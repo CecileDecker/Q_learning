@@ -1,11 +1,18 @@
 # Q_learning
  A q-learning utilisation
 
- --------------- Master Thesis --------------- 
+ --------------- Master Thesis ---------------
+ 
  ---------------------------------------------
+ 
+ ---------------------------------------------
+ 
  -------------- A Case Study of -------------- 
+ 
  --- Markov Decision Processes & Q-Learning --
+ 
  ---------- under Model Uncertainty ----------
+ 
  ------------- in finite spaces --------------
 
  Carried out with NUS
