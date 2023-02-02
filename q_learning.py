@@ -1,16 +1,14 @@
 
+############################################################################################
+
+import numpy as np
+from tqdm import tqdm 
+from scipy.optimize import minimize
+import copy
+
 # Classical Q learning #
 
-def q_learning(X,
-               A,
-               r,
-               P_0, # Simulation of next state in dependence of x and a
-               alpha,
-               x_0, 
-               eps_greedy = 0.05,
-               Nr_iter = 1000,
-               gamma_t_tilde = lambda t: 1/(t+1),
-               Q_0 = None):
+def q_learning(X, A, r, P_0, alpha, x_0, eps_greedy = 0.05, Nr_iter = 1000, gamma_t_tilde = lambda t: 1/(t+1), Q_0 = None):
     """
     Parameters
     ----------
@@ -21,7 +19,7 @@ def q_learning(X,
     r : function
         Reward function r(x,a,y) depending on state-action-state.
     P_0 : function
-        fucntion P_0(x,a) that creates a new random variabe in dependence of state and action
+        function P_0(x,a) that creates a new random variabe in dependence of state and action
     alpha : float
         Discounting rate.
     x_0 : numpy.ndarray
