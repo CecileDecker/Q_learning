@@ -15,10 +15,16 @@
  
  ------------- in finite spaces --------------
 
+ -------------------- & ----------------------
+
+ --------- a practical application -----------
+
+ ------------- on Fishing Quotas -------------
+
  Carried out with NUS
 
  Supervisor: Julian Sester
-
+ Reference: https://github.com/juliansester/Wasserstein-Q-learning.git
 
 
  Implementation of basic q-learning functions:
