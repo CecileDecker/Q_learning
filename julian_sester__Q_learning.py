@@ -8,7 +8,7 @@ from tqdm import tqdm
 from scipy.optimize import minimize
 import copy
 
-def robust_q_learning(X,
+def js_robust_q_learning(X,
                A,
                r,
                c,
@@ -145,7 +145,7 @@ def robust_q_learning(X,
 
 # Classical Q learning #
 
-def q_learning(X,
+def js_q_learning(X,
                A,
                r,
                P_0, # Simulation of next state in dependence of x and a
