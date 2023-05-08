@@ -7,7 +7,7 @@ import copy
 
 # Robust Q learning (in finite spaces) #
 
-def robust_q_learning(X, A, r, P_0, alpha, x_0, eps_greedy = 0.05, Nr_iter = 1000, gamma_t_tilde = lambda t: 1/(t+1), Q_0 = None):
+def robust_q_learning(X, A, r, P_0, alpha, x_0, k_0, eps_greedy = 0.05, Nr_iter = 1000, gamma_t_tilde = lambda t: 1/(t+1), Q_0 = None):
     """
     Parameters
     ----------
@@ -65,54 +65,63 @@ def robust_q_learning(X, A, r, P_0, alpha, x_0, eps_greedy = 0.05, Nr_iter = 100
         return np.flatnonzero((x == X_list).all(1))[0]
     
     # Define the f function
-    def f(t, x, a, y):
+    def f(x, a, y):
         return r(x, a, y) + alpha * np.max(Q[x_index(y), :])
 
     # Define the a_t function
-    def a_t(t, y):
+    def a_t(y):
         #eps_bound = 1-(t/Nr_iter)*(eps_greedy)
         eps_bound = eps_greedy
         unif      = np.random.uniform(0)
         return (unif > eps_bound) * A[np.argmax(Q[x_index(y), :])] + (unif <= eps_bound) * rng.choice(A)
 
     # Define the selection of the k-transition kernel
-    def k_t(t, y):
+    def k_t(x, a, X):
         K_ = []
-        for P in P_0:
-            X = P(y, a_t(t, y))
-            K_ = K_ + [f(t, y, a_t(t, y), X)]
+        for k in range(len(P_0)):
+            K_ = K_ + [f(x, a, X[k])]
         k = np.argmin(np.array(K_))
         return(k)
     
     # Define the gamma_t function
-    def gamma_t(Y_t, t, x, a, v):
+    def gamma_t(x, a, Y, A, v):
         gamma_t = gamma_t_tilde(v)
-        for y_t in Y_t:
-            gamma_t *= ((x, a) == (y_t, a_t(t, y_t)))
+        for k in range(len(Y)):
+            gamma_t *= ((x, a) == (Y[k], A[k]))
         return gamma_t
     
     # Set initial value
-    X_0 = x_0
+    k_0 = k_0
     Y_t = [x_0 for p in P_0] # The markov decision processes
     # Keep a record of gamma_t
     Gamma = []
     # Iterations of Q and Visits and States
     for t in tqdm(range(Nr_iter)):
 
-        k_1          = k_t(t, X_0)
-        X_1          = P_0[k_1](X_0, a_t(t, X_0)) # Get the next state
-        Q_old        = copy.deepcopy(Q) 
-        x , a        = X_0, a_t(t, X_0)
+        A_t = []
+        for y_t in Y_t:
+            A_t += [a_t(y_t)]
+
+        x, a         = Y_t[k_0], A_t[k_0]
+
+        Y   = []
+        for k in range(len(Y_t)):
+            Y += [P_0[k](Y_t[k], A_t[k])]
+
+        k_1          = k_t(x, a, Y)
+        Y_1          = Y[k_1]               # Get the next state
+        Q_old        = copy.deepcopy(Q)
         x_ind, a_ind = x_index(x), a_index(a)
 
         # Do the update of Q
-        Gamma += [gamma_t(Y_t, t, x, a, Visits[x_ind, a_ind])]
-        Q[x_ind, a_ind] = Q_old[x_ind, a_ind] +  Gamma[-1] * (f(t, x, a, X_1) - Q_old[x_ind, a_ind])
+        Gamma += [gamma_t(x, a, Y_t, A_t, Visits[x_ind, a_ind])]
+        Q[x_ind, a_ind] = Q_old[x_ind, a_ind] +  Gamma[-1] * (f(x, a, Y_1) - Q_old[x_ind, a_ind])
         Visits[x_ind, a_ind] += 1            # Update the visits matrix
+        
         # Update the family of Markov Decision Processes
         Y_t = []
         for P in P_0:
-            Y_t += [P(X_0, a_t(t, X_0))]     # For each probability measure
-        X_0 = X_1                            # Update the state
+            Y_t += [P(x, a)]                 # For each probability measure
+        k_0 = k_1
     
-    return Q
+    return Q, Gamma
