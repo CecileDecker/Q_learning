@@ -7,7 +7,7 @@ import copy
 
 # Robust Q learning (in finite spaces) #
 
-def robust_q_learning(X, A, r, P_0, alpha, x_0, k_0, eps_greedy = 0.05, Nr_iter = 1000, gamma_t_tilde = lambda t: 1/(t+1), Q_0 = None):
+def robust_q_learning(X, A, r, P_0, p_0, alpha, x_0, k_0, eps_greedy = 0.05, Nr_iter = 1000, gamma_t_tilde = lambda t: 1/(t+1), Q_0 = None):
     """
     Parameters
     ----------
@@ -19,6 +19,8 @@ def robust_q_learning(X, A, r, P_0, alpha, x_0, k_0, eps_greedy = 0.05, Nr_iter 
         Reward function r(x,a,y) depending on state-action-state.
     P_0 : numpy.ndarray
         P_0(x,a) list or numpy array of functions that creates a new random variabe in dependence of state and action
+    p_0 : numpy.ndarray
+        p_0(x,a,y) list of the probability distributions
     alpha : float
         Discounting rate.
     x_0 : numpy.ndarray
@@ -47,6 +49,7 @@ def robust_q_learning(X, A, r, P_0, alpha, x_0, k_0, eps_greedy = 0.05, Nr_iter 
     
     # Initialize the Visits matrix
     Visits = np.zeros([len(X), len(A)])
+    Indic  = np.zeros([len(X), len(A)])
 
     # Catch A and X as lists type
     if np.ndim(A) > 1:
@@ -76,52 +79,54 @@ def robust_q_learning(X, A, r, P_0, alpha, x_0, k_0, eps_greedy = 0.05, Nr_iter 
         return (unif > eps_bound) * A[np.argmax(Q[x_index(y), :])] + (unif <= eps_bound) * rng.choice(A)
 
     # Define the selection of the k-transition kernel
-    def k_t(x, a, X):
+    def k_t(x, a):
         K_ = []
         for k in range(len(P_0)):
-            K_ = K_ + [f(x, a, X[k])]
+            K_ += [np.sum([(f(x, a, y)) * p_0[k](x, a, y) for y in X])]
         k = np.argmin(np.array(K_))
         return(k)
     
-    # Define the gamma_t function
-    def gamma_t(x, a, Y, A, v):
-        gamma_t = gamma_t_tilde(v)
+    # Define the indic_t function
+    def indic_t(x, a, Y, A):
+        #gamma_t = gamma_t_tilde(v)
+        indic = 1
         for k in range(len(Y)):
-            gamma_t *= ((x, a) == (Y[k], A[k]))
-        return gamma_t
+            indic *= ((x, a) == (Y[k], A[k]))
+        return indic
     
     # Set initial value
     k_0 = k_0
-    Y_t = [x_0 for p in P_0] # The markov decision processes
+    Y_0 = [x_0 for P in P_0] # The markov decision processes
     # Keep a record of gamma_t
     Gamma = []
     # Iterations of Q and Visits and States
     for t in tqdm(range(Nr_iter)):
 
-        A_t = []
-        for y_t in Y_t:
-            A_t += [a_t(y_t)]
+        A_0 = []
+        for y_0 in Y_0:
+            A_0 += [a_t(y_0)]
 
-        x, a         = Y_t[k_0], A_t[k_0]
+        x, a         = Y_0[k_0], A_0[k_0]
 
-        Y   = []
-        for k in range(len(Y_t)):
-            Y += [P_0[k](Y_t[k], A_t[k])]
+        Y_1 = []
+        for k in range(len(Y_0)):
+            Y_1 += [P_0[k](Y_0[k], A_0[k])] # Update the Markov decision processes
 
-        k_1          = k_t(x, a, Y)
-        Y_1          = Y[k_1]               # Get the next state
+        k_1          = k_t(x, a)
+        y_1          = Y_1[k_1] # Get the next state
         Q_old        = copy.deepcopy(Q)
         x_ind, a_ind = x_index(x), a_index(a)
 
         # Do the update of Q
-        Gamma += [gamma_t(x, a, Y_t, A_t, Visits[x_ind, a_ind])]
-        Q[x_ind, a_ind] = Q_old[x_ind, a_ind] +  Gamma[-1] * (f(x, a, Y_1) - Q_old[x_ind, a_ind])
-        Visits[x_ind, a_ind] += 1            # Update the visits matrix
+        i = indic_t(x, a, Y_0, A_0)
+        Indic[x_ind, a_ind] += i
+        Gamma += [i * gamma_t_tilde(Visits[x_ind, a_ind])]
+        Q[x_ind, a_ind] = Q_old[x_ind, a_ind] +  Gamma[-1] * (f(x, a, y_1) - Q_old[x_ind, a_ind])
+        Visits[x_ind, a_ind] += 1 * (i == 1) # Update the visits matrix
         
-        # Update the family of Markov Decision Processes
-        Y_t = []
-        for P in P_0:
-            Y_t += [P(x, a)]                 # For each probability measure
+        # Update the index of the markov decision process we consider next step
         k_0 = k_1
+        # Update the Markov decision processes
+        Y_0 = Y_1
     
-    return Q, Gamma
+    return Q, Gamma, Indic
